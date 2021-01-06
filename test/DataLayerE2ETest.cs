@@ -27,11 +27,12 @@ namespace LangExtEffSample.Test
                 Age = 62,
             };
 
-            var connectionString = "Data Source=localhost;Initial Catalog=people_db;User ID=sa;Password=Pass@word";
-            var env = new DataLayerRuntime(new CancellationTokenSource(), connectionString);
+            var CreateNewPerson =
+                from _ in DataLayer.SetConfig<DataLayerRuntime>(new Configuration(ConnectionString))
+                from person in DataLayer.CreatePerson<DataLayerRuntime>(createPerson)
+                select person;
 
-            var CreateNewPerson = DataLayer.CreatePerson<DataLayerRuntime>(createPerson);
-
+            var env = DataLayerRuntime.New();
             var b = await CreateNewPerson.RunIO(env);
 
             Assert.Equal(createPerson, b.ThrowIfFail());

@@ -1,5 +1,7 @@
 using System;
 using System.Linq;
+using System.Collections.Generic;
+using System.Data;
 using System.Threading;
 using System.Threading.Tasks;
 using LanguageExt;
@@ -23,11 +25,13 @@ namespace LangExtEffSample
         // QuerySingleAsync
         // Execute a single-row query asynchronously using Task.
         // (awaitable, extension) Task<T> IDbConnection.QuerySingleAsync<T>(string sql, [object param = null], [IDbTransaction transaction = null], [int? commandTimeout = null], [CommandType? commandType = null]) (+ 1 overload)
-        ValueTask<T> QuerySingle<T>(string sql, object param);
+        ValueTask<T> QuerySingle<T>(string sql, object param = null, IDbTransaction transaction = null, int? commandTimeout = null, CommandType? commandType = null);
 
         // QueryAsync
         // Execute a query asynchronously using Task. Returns: A sequence of data of T;
-        // (awaitable, extension) Task<T> IDbConnection.QuerySingleAsync<T>(string sql, [object param = null], [IDbTransaction transaction = null], [int? commandTimeout = null], [CommandType? commandType = null]) (+ 1 overload)
+        // (awaitable, extension) Task<IEnumerable<T>> IDbConnection.QueryAsync<T>(string sql, [object param = null], [IDbTransaction transaction = null], [int? commandTimeout = null], [CommandType? commandType = null])
+        // Task<IEnumerable<T>> IDbConnection.QueryAsync<T>(string sql, [object param = null], [IDbTransaction transaction = null], [int? commandTimeout = null], [CommandType? commandType = null])
+        ValueTask<IEnumerable<T>> Query<T>(string sql, object param = null, IDbTransaction transaction = null, int? commandTimeout = null, CommandType? commandType = null);
 
         string Pwd();
     }
@@ -53,14 +57,21 @@ namespace LangExtEffSample
             System.IO.Directory.GetCurrentDirectory();
         // throw new Exception("AHHHHHHHHH!!!");
 
-        public async ValueTask<T> QuerySingle<T>(string query, object param)
+        public async ValueTask<T> QuerySingle<T>(string query, object param = null, IDbTransaction transaction = null, int? commandTimeout = null, CommandType? commandType = null)
         {
             if (string.IsNullOrEmpty(ConnectionString))
                 throw new Exception("AHHHHHH");
             Console.WriteLine($"============={ConnectionString}");
             using (var c = new SqlConnection(ConnectionString))
             {
-                return await c.QuerySingleAsync<T>(query, param);
+                return await c.QuerySingleAsync<T>(query, param, transaction, commandTimeout, commandType);
+            }
+        }
+        public async ValueTask<IEnumerable<T>> Query<T>(string sql, object param = null, IDbTransaction transaction = null, int? commandTimeout = null, CommandType? commandType = null)
+        {
+            using (var c = new SqlConnection(ConnectionString))
+            {
+                return await c.QueryAsync<T>(sql, param, transaction, commandTimeout, commandType);
             }
         }
     }
@@ -80,32 +91,38 @@ namespace LangExtEffSample
     {
         readonly CancellationTokenSource cancellationTokenSource;
         public CancellationToken CancellationToken { get; }
-        public DataLayerRuntime(CancellationTokenSource cancellationTokenSource, string connectionString)
-        {
+        public static DataLayerRuntime New() =>
+            new DataLayerRuntime(new CancellationTokenSource());
+        DataLayerRuntime(CancellationTokenSource cancellationTokenSource) =>
             (this.cancellationTokenSource, CancellationToken)
                 = (cancellationTokenSource, cancellationTokenSource.Token);
-            ConnectionString.Swap(old => connectionString);
-        }
-
-        public Eff<DataLayerRuntime, CancellationTokenSource> CancellationTokenSource =>
-            SuccessEff(cancellationTokenSource);
         public DataLayerRuntime LocalCancel =>
-            new DataLayerRuntime(new CancellationTokenSource(), ConnectionString.Value);
+            new DataLayerRuntime(
+                new CancellationTokenSource());
+        public Eff<DataLayerRuntime, CancellationTokenSource> CancellationTokenSource =>
+            Eff<DataLayerRuntime, CancellationTokenSource>(env => env.cancellationTokenSource);
 
-        public static Atom<string> ConnectionString = Atom("");
         public Aff<DataLayerRuntime, SqlDbIO> AffSqlDb =>
-            SuccessAff(LiveSqlDbIO.New(ConnectionString));
+            EffSqlDb.ToAsync();
+        public Eff<DataLayerRuntime, SqlDbIO> EffSqlDb =>
+            Eff<DataLayerRuntime, SqlDbIO>(env => LiveSqlDbIO.New(ConfigurationStore.configOrThrow().ConnectionString));
     }
 
     public class DataLayer
     {
-        // public static Aff<RT, T> QuerySingle<RT, T>(string query, object param)
-        //     where RT : struct, HasCancel<RT>, HasSqlDb<RT> =>
-        //         from t in SqlDbAff.querySingle<RT, T>(query, param)
-        //         select t;
+        public static Aff<RT, Unit> SetConfig<RT>(Configuration configuration)
+            where RT : struct, HasCancel<RT>, HasSqlDb<RT> =>
+                from _ in ConfigurationStore.SetConfig<RT>(configuration)
+                select unit;
 
         // Illustrates doing multiple queries and tieing them together
         public static Aff<RT, Person> CreatePerson<RT>(Person person)
+            where RT : struct, HasCancel<RT>, HasSqlDb<RT> =>
+                from personId in InsertPerson<RT>(person)
+                from newPerson in ReadPerson<RT>(personId)
+                select newPerson;
+
+        public static Aff<RT, int> InsertPerson<RT>(Person person)
             where RT : struct, HasCancel<RT>, HasSqlDb<RT>
         {
             var sqlInsert = @"
@@ -121,6 +138,13 @@ namespace LangExtEffSample
                     @Age
                 )
             ";
+            return from personId in SqlDbAff.querySingle<RT, int>(sqlInsert, person)
+                   select personId;
+        }
+
+        public static Aff<RT, Person> ReadPerson<RT>(int personId)
+            where RT : struct, HasCancel<RT>, HasSqlDb<RT>
+        {
             var sqlQuery = @"
                 select
                     id as Id,
@@ -131,8 +155,7 @@ namespace LangExtEffSample
                 WHERE
                     id = @Id
             ";
-            return from personId in SqlDbAff.querySingle<RT, int>(sqlInsert, person)
-                   from newPerson in SqlDbAff.querySingle<RT, Person>(sqlQuery, new { Id = personId })
+            return from newPerson in SqlDbAff.querySingle<RT, Person>(sqlQuery, new { Id = personId })
                    select newPerson;
         }
     }
