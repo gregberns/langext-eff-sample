@@ -1,4 +1,9 @@
 ﻿using System;
+using Microsoft.AspNetCore.Builder;
+using Microsoft.AspNetCore.Hosting;
+using LanguageExt;
+using LanguageExt.Common;
+using static LanguageExt.Prelude;
 
 namespace LangExtEffSample
 {
@@ -10,6 +15,12 @@ namespace LangExtEffSample
 
             // Get the envvars to run - could use a runtime
             //  * Startup Runtime??
+            // var configRt = new ConfigRuntime();
+            var config =
+                GetConfig<ConfigRuntime>()
+                    .RunIO(new ConfigRuntime())
+                    .ThrowIfFail();
+
 
             // Web layer
 
@@ -20,8 +31,20 @@ namespace LangExtEffSample
 
 
 
+            var serverPort = 8080;
 
-
+            new WebHostBuilder()
+                .UseKestrel()
+                .UseUrls($"http://*:{serverPort}")
+                .UseStartup<Startup>()
+                .Build()
+                .Run();
         }
+
+        public static Eff<RT, Configuration> GetConfig<RT>()
+            where RT : struct, HasEnvVars<RT> =>
+                from abc in EnvVarsEff<RT>.getEnv("abc")
+                select new Configuration(abc);
+
     }
 }

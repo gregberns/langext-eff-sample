@@ -22,15 +22,22 @@ namespace LangExtEffSample
         ) =>
             (ConnectionString) =
                 (connectionString);
+
+
     }
     public static class ConfigurationStore
     {
         static readonly Atom<Option<Configuration>> configMap = Atom(Option<Configuration>.None);
 
-        public static Eff<RT, Unit> SetConfig<RT>(Configuration config) =>
+        public static Eff<Unit> SetConfig(Configuration config) =>
             Eff(() => ignore(configMap.Swap(_ => config)));
 
-        public static Configuration configOrThrow() =>
-            configMap.Value.IfNone(() => throw new InvalidOperationException("ConfigurationStore not initialized"));
+        static Eff<A> NotInitialised<A>() =>
+            FailEff<A>(Error.New("Configuration not initialised"));
+
+        public static Eff<string> ConnectionString =>
+            configMap.Value
+                     .Map(c => c.ConnectionString)
+                     .Match(SuccessEff, NotInitialised<string>);
     }
 }

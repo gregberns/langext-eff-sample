@@ -76,43 +76,87 @@ namespace LangExtEffSample
         }
     }
 
-    public static class SqlDbAff
+    public static class SqlDbAff<RT>
+        where RT : struct, HasCancel<RT>, HasSqlDb<RT>
     {
-        public static Aff<RT, string> pwd<RT>()
-            where RT : struct, HasCancel<RT>, HasSqlDb<RT> =>
+        public static Aff<RT, string> pwd() =>
                 default(RT).AffSqlDb.Map(p => p.Pwd());
 
-        public static Aff<RT, T> querySingle<RT, T>(string query, object param)
-            where RT : struct, HasCancel<RT>, HasSqlDb<RT> =>
+        public static Aff<RT, T> querySingle<T>(string query, object param) =>
                 default(RT).AffSqlDb.MapAsync(p => p.QuerySingle<T>(query, param));
     }
+
+    // public static class SqlDbAff<RT>
+    //     where RT : struct, HasSqlDb<RT>
+    // {
+    //     public static Eff<RT, string> pwd =>
+    //         default(RT).SqlDb.Map(p => p.Pwd());
+
+    //     public static Aff<RT, T> querySingle<T>(string query, object param) =>
+    //         default(RT).SqlDb.MapAsync(p => p.QuerySingle<T>(query, param));
+    // }
+
+    // public struct DataLayerRuntime : HasCancel<DataLayerRuntime>, HasSqlDb<DataLayerRuntime>
+    // {
+    //     readonly CancellationTokenSource cancellationTokenSource;
+    //     public CancellationToken CancellationToken { get; }
+    //     public static DataLayerRuntime New() =>
+    //         new DataLayerRuntime(new CancellationTokenSource());
+    //     DataLayerRuntime(CancellationTokenSource cancellationTokenSource) =>
+    //         (this.cancellationTokenSource, CancellationToken)
+    //             = (cancellationTokenSource, cancellationTokenSource.Token);
+    //     public DataLayerRuntime LocalCancel =>
+    //         new DataLayerRuntime(
+    //             new CancellationTokenSource());
+    //     public Eff<DataLayerRuntime, CancellationTokenSource> CancellationTokenSource =>
+    //         Eff<DataLayerRuntime, CancellationTokenSource>(env => env.cancellationTokenSource);
+
+    //     public Aff<DataLayerRuntime, SqlDbIO> AffSqlDb =>
+    //         EffSqlDb.ToAsync();
+    //     public Eff<DataLayerRuntime, SqlDbIO> EffSqlDb =>
+    //         Eff<DataLayerRuntime, SqlDbIO>(env => LiveSqlDbIO.New(ConfigurationStore.configOrThrow().ConnectionString));
+    // }
 
     public struct DataLayerRuntime : HasCancel<DataLayerRuntime>, HasSqlDb<DataLayerRuntime>
     {
         readonly CancellationTokenSource cancellationTokenSource;
+        readonly string connectionString;
+
         public CancellationToken CancellationToken { get; }
-        public static DataLayerRuntime New() =>
-            new DataLayerRuntime(new CancellationTokenSource());
-        DataLayerRuntime(CancellationTokenSource cancellationTokenSource) =>
-            (this.cancellationTokenSource, CancellationToken)
-                = (cancellationTokenSource, cancellationTokenSource.Token);
+
+        public static DataLayerRuntime New(string connectionString) =>
+            new DataLayerRuntime(connectionString, new CancellationTokenSource());
+
+        DataLayerRuntime(string connectionString, CancellationTokenSource cancellationTokenSource) =>
+            (this.connectionString, this.cancellationTokenSource, CancellationToken) =
+               (connectionString, cancellationTokenSource, cancellationTokenSource.Token);
+
         public DataLayerRuntime LocalCancel =>
-            new DataLayerRuntime(
-                new CancellationTokenSource());
+            new DataLayerRuntime(connectionString, new CancellationTokenSource());
+
         public Eff<DataLayerRuntime, CancellationTokenSource> CancellationTokenSource =>
             Eff<DataLayerRuntime, CancellationTokenSource>(env => env.cancellationTokenSource);
 
+        // Either of the two options below work:
+        //   Either you can pass the config values in through the constructor
+        //   Or you can have the Runtime get the values from the configuration
         public Aff<DataLayerRuntime, SqlDbIO> AffSqlDb =>
             EffSqlDb.ToAsync();
         public Eff<DataLayerRuntime, SqlDbIO> EffSqlDb =>
-            Eff<DataLayerRuntime, SqlDbIO>(env => LiveSqlDbIO.New(ConfigurationStore.configOrThrow().ConnectionString));
+            Eff<DataLayerRuntime, SqlDbIO>(env => LiveSqlDbIO.New(env.connectionString));
+        // public Aff<DataLayerRuntime, SqlDbIO> AffSqlDb =>
+        //     from conn in ConfigurationStore.ConnectionString
+        //     select LiveSqlDbIO.New(conn);
+        // public Eff<DataLayerRuntime, SqlDbIO> EffSqlDb =>
+        //     from conn in ConfigurationStore.ConnectionString
+        //     select LiveSqlDbIO.New(conn);
     }
 
     public class DataLayer
     {
         public static Aff<RT, Unit> SetConfig<RT>(Configuration configuration)
             where RT : struct, HasCancel<RT>, HasSqlDb<RT> =>
-                from _ in ConfigurationStore.SetConfig<RT>(configuration)
+                from _ in ConfigurationStore.SetConfig(configuration)
                 select unit;
 
         // Illustrates doing multiple queries and tieing them together
@@ -138,7 +182,7 @@ namespace LangExtEffSample
                     @Age
                 )
             ";
-            return from personId in SqlDbAff.querySingle<RT, int>(sqlInsert, person)
+            return from personId in SqlDbAff<RT>.querySingle<int>(sqlInsert, person)
                    select personId;
         }
 
@@ -155,7 +199,7 @@ namespace LangExtEffSample
                 WHERE
                     id = @Id
             ";
-            return from newPerson in SqlDbAff.querySingle<RT, Person>(sqlQuery, new { Id = personId })
+            return from newPerson in SqlDbAff<RT>.querySingle<Person>(sqlQuery, new { Id = personId })
                    select newPerson;
         }
     }

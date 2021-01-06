@@ -28,11 +28,11 @@ namespace LangExtEffSample.Test
             };
 
             var CreateNewPerson =
-                from _ in DataLayer.SetConfig<DataLayerRuntime>(new Configuration(ConnectionString))
+                // from _ in DataLayer.SetConfig<DataLayerRuntime>(new Configuration(ConnectionString))
                 from person in DataLayer.CreatePerson<DataLayerRuntime>(createPerson)
                 select person;
 
-            var env = DataLayerRuntime.New();
+            var env = DataLayerRuntime.New(ConnectionString);
             var b = await CreateNewPerson.RunIO(env);
 
             Assert.Equal(createPerson, b.ThrowIfFail());
