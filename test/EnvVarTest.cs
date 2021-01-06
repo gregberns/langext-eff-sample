@@ -18,6 +18,31 @@ namespace LangExtEffSample.Test
     public class EnvVarTest
     {
         [Fact]
+        public void MultipleEnvVar()
+        {
+            System.Environment.SetEnvironmentVariable("abc", "123");
+            System.Environment.SetEnvironmentVariable("def", "456");
+
+            var conf =
+                GetConfig<ConfigRuntime>()
+                    .RunIO(new ConfigRuntime())
+                    .ThrowIfFail();
+
+            Assert.Equal("123", conf.Abc);
+            Assert.Equal("456", conf.Def);
+
+            Eff<RT, TestConfiguration> GetConfig<RT>()
+                where RT : struct, HasEnvVars<RT> =>
+                    from abc in EnvVarsEff<RT>.getEnv("abc")
+                    from def in EnvVarsEff<RT>.getEnv("def")
+                    select new TestConfiguration
+                    {
+                        Abc = abc,
+                        Def = def,
+                    };
+        }
+
+        [Fact]
         public void StringEnvVar()
         {
             System.Environment.SetEnvironmentVariable("abc", "123");
@@ -38,7 +63,7 @@ namespace LangExtEffSample.Test
                     .RunIO(new ConfigRuntime());
 
             Assert.True(config.IsFail);
-            Assert.Equal("Invalid environmental variable: asdf", config.IfFail(e => e.Message));
+            Assert.Equal("Invalid environmental variable: 'asdf'", config.IfFail(e => e.Message));
         }
     }
 }

@@ -49,6 +49,7 @@ namespace LangExtEffSample
             var val = System.Environment.GetEnvironmentVariable(env);
             return String.IsNullOrWhiteSpace(val)
                 // ? Fail<string, string>($"Invalid environmental variable: {env}")
+                // ? throw new Exception($"Invalid environmental variable: '{env}'")
                 ? throw new Exception($"Invalid environmental variable: '{env}'")
                 // : Success<string, string>(val);
                 : val;
