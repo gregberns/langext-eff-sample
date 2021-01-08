@@ -43,6 +43,47 @@ namespace LangExtEffSample.Test
         }
 
         [Fact]
+        public void ApplyMultipleEnvVar()
+        {
+            System.Environment.SetEnvironmentVariable("abc", "123");
+            System.Environment.SetEnvironmentVariable("def", "456");
+
+            var conf =
+                GetConfig<ConfigRuntime>()
+                    .RunIO(new ConfigRuntime())
+                    .ThrowIfFail();
+
+            Assert.Equal("123", conf.Abc);
+            Assert.Equal("456", conf.Def);
+
+            Eff<RT, TestConfiguration> GetConfig<RT>()
+                where RT : struct, HasEnvVars<RT> =>
+                    // How do we do this as an Applicative like Validation
+                    from abc in EnvVarsEff<RT>.getEnv("abc")
+                    from def in EnvVarsEff<RT>.getEnv("def")
+                    select new TestConfiguration
+                    {
+                        Abc = abc,
+                        Def = def,
+                    };
+            // EnvVarsEff<RT>.getEnv("abc")
+            // .Apply()
+
+            // (
+            //     EnvVarsEff<RT>.getEnv("abc"),
+            //     EnvVarsEff<RT>.getEnv("def")
+            // )
+            // .Apply(
+            //     (a, b) =>
+            //         new TestConfiguration
+            //         {
+            //             Abc = abc,
+            //             Def = def,
+            //         }
+            // );
+        }
+
+        [Fact]
         public void StringEnvVar()
         {
             System.Environment.SetEnvironmentVariable("abc", "123");

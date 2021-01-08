@@ -80,10 +80,10 @@ namespace LangExtEffSample
         where RT : struct, HasCancel<RT>, HasSqlDb<RT>
     {
         public static Aff<RT, string> pwd() =>
-                default(RT).AffSqlDb.Map(p => p.Pwd());
+            default(RT).AffSqlDb.Map(p => p.Pwd());
 
         public static Aff<RT, T> querySingle<T>(string query, object param) =>
-                default(RT).AffSqlDb.MapAsync(p => p.QuerySingle<T>(query, param));
+            default(RT).AffSqlDb.MapAsync(p => p.QuerySingle<T>(query, param));
     }
 
     // public static class SqlDbAff<RT>
