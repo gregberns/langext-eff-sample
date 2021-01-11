@@ -20,7 +20,7 @@ namespace LangExtEffSample.Test
         [Fact]
         public async void GetOrgs()
         {
-            var githubUser = "gregbern";
+            var githubUser = "gregberns";
             var githubToken = "<NOT NEEDED>";
 
             var getOrgs =

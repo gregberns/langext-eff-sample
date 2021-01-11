@@ -16,6 +16,23 @@ namespace LangExtEffSample
         string Serialize<T>(T obj);
     }
 
+    public interface HasJson<RT>
+        where RT : struct
+    {
+        Eff<RT, JsonIO> EffJson { get; }
+    }
+
+    public static class JsonEff<RT>
+        where RT : struct, HasJson<RT>
+    {
+        public static Eff<RT, T> deserialize<T>(Byte[] json) =>
+            default(RT).EffJson.Map(j => j.Deserialize<T>(json));
+        public static Eff<RT, T> deserialize<T>(string json) =>
+            default(RT).EffJson.Map(j => j.Deserialize<T>(json));
+        public static Eff<RT, string> serialize<T>(T obj) =>
+            default(RT).EffJson.Map(j => j.Serialize<T>(obj));
+    }
+
     public class LiveJsonIO : JsonIO
     {
         public string Serialize<T>(T obj) =>

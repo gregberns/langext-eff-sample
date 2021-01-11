@@ -60,6 +60,7 @@ namespace LangExtEffSample
                     res.StatusCode == 200 ? RightAsync<Error, HttpResponse>(res)
                     : LeftAsync<Error, HttpResponse>(Error.New($"Github Auth failed. StatusCode: {res.StatusCode}. Body: {res.Body}")))
                 .Bind<List<GithubOrg>>(res => _json.Deserialize<List<GithubOrg>>(res.Body))
+                // .Bind<List<GithubOrg>>(res => JsonEff<RT>.deserialize<List<GithubOrg>>(res.Body))
                 .Map(ghres => ghres.Freeze());
         }
     }
