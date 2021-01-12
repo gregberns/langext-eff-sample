@@ -86,37 +86,6 @@ namespace LangExtEffSample
             default(RT).AffSqlDb.MapAsync(p => p.QuerySingle<T>(query, param));
     }
 
-    // public static class SqlDbAff<RT>
-    //     where RT : struct, HasSqlDb<RT>
-    // {
-    //     public static Eff<RT, string> pwd =>
-    //         default(RT).SqlDb.Map(p => p.Pwd());
-
-    //     public static Aff<RT, T> querySingle<T>(string query, object param) =>
-    //         default(RT).SqlDb.MapAsync(p => p.QuerySingle<T>(query, param));
-    // }
-
-    // public struct DataLayerRuntime : HasCancel<DataLayerRuntime>, HasSqlDb<DataLayerRuntime>
-    // {
-    //     readonly CancellationTokenSource cancellationTokenSource;
-    //     public CancellationToken CancellationToken { get; }
-    //     public static DataLayerRuntime New() =>
-    //         new DataLayerRuntime(new CancellationTokenSource());
-    //     DataLayerRuntime(CancellationTokenSource cancellationTokenSource) =>
-    //         (this.cancellationTokenSource, CancellationToken)
-    //             = (cancellationTokenSource, cancellationTokenSource.Token);
-    //     public DataLayerRuntime LocalCancel =>
-    //         new DataLayerRuntime(
-    //             new CancellationTokenSource());
-    //     public Eff<DataLayerRuntime, CancellationTokenSource> CancellationTokenSource =>
-    //         Eff<DataLayerRuntime, CancellationTokenSource>(env => env.cancellationTokenSource);
-
-    //     public Aff<DataLayerRuntime, SqlDbIO> AffSqlDb =>
-    //         EffSqlDb.ToAsync();
-    //     public Eff<DataLayerRuntime, SqlDbIO> EffSqlDb =>
-    //         Eff<DataLayerRuntime, SqlDbIO>(env => LiveSqlDbIO.New(ConfigurationStore.configOrThrow().ConnectionString));
-    // }
-
     public struct DataLayerRuntime : HasCancel<DataLayerRuntime>, HasSqlDb<DataLayerRuntime>
     {
         readonly CancellationTokenSource cancellationTokenSource;

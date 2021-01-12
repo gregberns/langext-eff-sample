@@ -11,6 +11,9 @@ namespace LangExtEffSample
     public interface GithubIO
     {
         EitherAsync<Error, Lst<GithubOrg>> GetUserOrgs(string username);
+        Aff<RT, Lst<GithubOrg>> GetUserOrgs<RT>(string username)
+            // where RT : struct, HasCancel<RT>;
+            where RT : struct, HasCancel<RT>, HasHttpClient<RT>, HasJson<RT>;
     }
 
     public interface HasGithub<RT>
@@ -62,6 +65,33 @@ namespace LangExtEffSample
                 .Bind<List<GithubOrg>>(res => _json.Deserialize<List<GithubOrg>>(res.Body))
                 // .Bind<List<GithubOrg>>(res => JsonEff<RT>.deserialize<List<GithubOrg>>(res.Body))
                 .Map(ghres => ghres.Freeze());
+        }
+
+        public Aff<RT, Lst<GithubOrg>> GetUserOrgs<RT>(string username)
+            where RT : struct, HasCancel<RT>, HasHttpClient<RT>, HasJson<RT>
+        {
+            // This isn't required unless you want to make a lot of calls
+            var authHeader = $"Basic {Base64Encode($"{_githubUser}:{_githubToken}")}";
+
+            var request = new HttpRequestMessage
+            {
+                RequestUri = new Uri($"https://api.github.com/users/{username}/orgs"),
+                Method = HttpMethod.Get,
+                Headers = {
+                    { "Authorization", $"{authHeader}" },
+                    { "User-Agent",  "curl/7.33.0" },
+                    { "Accept", "application/vnd.github.v3+json" }
+                },
+            };
+
+            return
+                from res in HttpClientAff<RT>.sendRequest(request)
+                from _ in
+                    (res.StatusCode == 200
+                        ? SuccessAff<HttpResponse>(res)
+                        : FailAff<HttpResponse>(Error.New($"Github Auth failed. StatusCode: {res.StatusCode}. Body: {res.Body}")))
+                from b in JsonEff<RT>.deserialize<List<GithubOrg>>(res.Body)
+                select b.Freeze();
         }
     }
     public class GithubOrg : Record<GithubOrg>

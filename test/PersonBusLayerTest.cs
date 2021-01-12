@@ -34,5 +34,22 @@ namespace LangExtEffSample.Test
             Assert.Equal(1, res.Count());
             Assert.Equal("ISSAOnline", res.Head().login);
         }
+
+        [Fact]
+        public async void GetOrgsV2()
+        {
+            var githubCredentials = new GithubCredentials("someUser", "<NOT NEEDED>");
+
+            var getOrgs =
+                from orgs in PersonBusLayerV2.GetUserOrgs<SomeRuntimeV2>("gregberns")
+                select orgs;
+
+            var env = SomeRuntimeV2.New(githubCredentials);
+            var os = await getOrgs.RunIO(env);
+
+            var res = os.ThrowIfFail();
+            Assert.Equal(1, res.Count());
+            Assert.Equal("ISSAOnline", res.Head().login);
+        }
     }
 }

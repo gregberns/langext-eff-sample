@@ -9,8 +9,6 @@ namespace LangExtEffSample
 {
     public interface JsonIO
     {
-        // Either<Error, T> Deserialize<T>(Byte[] data);
-        // Either<Error, T> Deserialize<T>(string str);
         T Deserialize<T>(Byte[] data);
         T Deserialize<T>(string str);
         string Serialize<T>(T obj);

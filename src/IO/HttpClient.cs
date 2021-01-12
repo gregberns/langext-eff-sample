@@ -1,19 +1,33 @@
 using System.Net.Http;
 using System;
+using System.Linq;
 using System.IO;
 using Newtonsoft.Json;
 using System.Threading.Tasks;
-using System.Linq;
 using LanguageExt;
 using LanguageExt.Common;
+using LanguageExt.Interfaces;
 using static LanguageExt.Prelude;
 
 namespace LangExtEffSample
 {
     public interface HttpClientIO
     {
+        ValueTask<HttpResponse> SendRequest(HttpRequestMessage message);
         EitherAsync<Error, HttpResponse> HttpRequest(HttpRequestMessage message);
         Task<Either<Error, HttpResponse>> HttpRequestAsync(HttpRequestMessage message);
+    }
+    public interface HasHttpClient<RT>
+        where RT : struct, HasCancel<RT>
+    {
+        Aff<RT, HttpClientIO> AffHttpClient { get; }
+    }
+
+    public static class HttpClientAff<RT>
+        where RT : struct, HasCancel<RT>, HasHttpClient<RT>
+    {
+        public static Aff<RT, HttpResponse> sendRequest(HttpRequestMessage message) =>
+            default(RT).AffHttpClient.MapAsync(j => j.SendRequest(message));
     }
 
     public class LiveHttpClientIO : HttpClientIO
@@ -22,6 +36,22 @@ namespace LangExtEffSample
         public LiveHttpClientIO()
         {
             _httpClient = new HttpClient();
+        }
+
+        public async ValueTask<HttpResponse> SendRequest(HttpRequestMessage message)
+        {
+            var response = await _httpClient.SendAsync(message);
+            var stream = await response.Content.ReadAsStreamAsync();
+            var body = await new StreamReader(stream).ReadToEndAsync();
+            return new HttpResponse()
+            {
+                StatusCode = (int)response.StatusCode,
+                Headers = response.Headers.ToDictionary(
+                            kv => kv.Key,
+                            kv => kv.Value.Freeze()
+                        ).ToMap(),
+                Body = body
+            };
         }
 
         public EitherAsync<Error, HttpResponse> HttpRequest(HttpRequestMessage message) =>
@@ -41,7 +71,7 @@ namespace LangExtEffSample
             return await ProcessHttpResponse(response);
         }
 
-        private static async Task<Either<Error, HttpResponse>> ProcessHttpResponse(HttpResponseMessage response)
+        private static async ValueTask<Either<Error, HttpResponse>> ProcessHttpResponse(HttpResponseMessage response)
         {
             Stream stream = null;
             try

@@ -7,6 +7,20 @@ using static LanguageExt.Prelude;
 
 namespace LangExtEffSample
 {
+    public class PersonBusLayer
+    {
+        public static Aff<RT, Lst<GithubOrg>> GetUserOrgs<RT>(string username)
+            where RT : struct, HasCancel<RT>, HasGithub<RT> =>
+                from orgs in default(RT).AffGithub().Bind(gh =>
+                    AffMaybe<RT, Lst<GithubOrg>>(
+                        env =>
+                            gh.GetUserOrgs(username)
+                                .Match(
+                                    Right: r => FinSucc<Lst<GithubOrg>>(r),
+                                    Left: e => FinFail<Lst<GithubOrg>>(e))
+                                .ToValue()))
+                select orgs;
+    }
     public struct SomeRuntime : HasCancel<SomeRuntime>, HasGithub<SomeRuntime>
     {
         readonly CancellationTokenSource cancellationTokenSource;
@@ -56,27 +70,5 @@ namespace LangExtEffSample
             select f(aa, bb);
     }
 
-    public class PersonBusLayer
-    {
-        public static Aff<RT, Lst<GithubOrg>> GetUserOrgs<RT>(string username)
-            where RT : struct, HasCancel<RT>, HasGithub<RT> =>
-                // from authToken in default(RT).AffGithub.Bind(gh =>
-                //         AffMaybe<RT, string>(
-                //             env =>
-                //                 gh.Auth()
-                //                     .Match(
-                //                         Right: r => FinSucc<string>(r),
-                //                         Left: e => FinFail<string>(e))
-                //                     .ToValue()))
-                from orgs in default(RT).AffGithub().Bind(gh =>
-                    AffMaybe<RT, Lst<GithubOrg>>(
-                        env =>
-                            gh.GetUserOrgs(username)
-                                .Match(
-                                    Right: r => FinSucc<Lst<GithubOrg>>(r),
-                                    Left: e => FinFail<Lst<GithubOrg>>(e))
-                                .ToValue()))
-                select orgs;
 
-    }
 }
