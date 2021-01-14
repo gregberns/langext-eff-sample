@@ -16,10 +16,10 @@ namespace LangExtEffSample
             // Get the envvars to run - could use a runtime
             //  * Startup Runtime??
             // var configRt = new ConfigRuntime();
-            var config =
-                GetConfig<ConfigRuntime>()
-                    .RunIO(new ConfigRuntime())
-                    .ThrowIfFail();
+            // var config =
+            //     GetConfig<ConfigRuntime>()
+            //         .RunIO(new ConfigRuntime())
+            //         .ThrowIfFail();
 
 
             // Web layer
@@ -41,10 +41,10 @@ namespace LangExtEffSample
                 .Run();
         }
 
-        public static Eff<RT, Configuration> GetConfig<RT>()
-            where RT : struct, HasEnvVars<RT> =>
-                from abc in EnvVarsEff<RT>.getEnv("abc")
-                select new Configuration(abc);
+        // public static Eff<RT, Configuration> GetConfig<RT>()
+        //     where RT : struct, HasEnvVars<RT> =>
+        //         from abc in EnvVarsEff<RT>.getEnv("abc")
+        //         select new Configuration(abc);
 
     }
 }

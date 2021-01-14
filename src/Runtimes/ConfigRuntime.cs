@@ -12,9 +12,9 @@ using LanguageExt.Interfaces;
 namespace LangExtEffSample
 {
     // This doesn't really do anything... so need to attach this to a "Program" Runtime??
-    public struct ConfigRuntime : HasEnvVars<ConfigRuntime>
-    {
-        public Eff<ConfigRuntime, EnvVarsIO> EffEnvVars =>
-            Eff<ConfigRuntime, EnvVarsIO>(env => new LiveEnvVarsIO());
-    }
+    // public struct ConfigRuntime : HasEnvVars<ConfigRuntime>
+    // {
+    //     public Eff<ConfigRuntime, EnvVarsIO> EffEnvVars =>
+    //         Eff<ConfigRuntime, EnvVarsIO>(env => new LiveEnvVarsIO());
+    // }
 }

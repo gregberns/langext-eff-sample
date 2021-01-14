@@ -9,36 +9,72 @@ using LanguageExt.Common;
 using static LanguageExt.Prelude;
 using LanguageExt.Interfaces;
 
-using Dapper;
-using Microsoft.Data.SqlClient;
-
 namespace LangExtEffSample
 {
-    // specifies the behaviour of IO sub-system
-    public interface EnvVarsIO
+    public static class AffExt
     {
-        string GetEnv(string env);
-        // Validation<string, int> GetEnvInt(string env);
-        // Validation<string, bool> GetEnvBool(string env);
-        // Validation<string, Uri> GetEnvUri(string env);
-        // Validation<string, Uri> GetEnvUriAbs(string env);
-        // Validation<string, Uri> GetEnvUriRel(string env);
+        public static Aff<Env, D> Apply<Env, A, B, C, D>(this (Aff<Env, A>, Aff<Env, B>, Aff<Env, C>) ms, Func<A, B, C, D> apply)
+            where Env : struct, HasCancel<Env> =>
+                AffMaybe<Env, D>(async env =>
+                    {
+                        var t1 = ms.Item1.RunIO(env).AsTask();
+                        var t2 = ms.Item2.RunIO(env).AsTask();
+                        var t3 = ms.Item3.RunIO(env).AsTask();
+
+                        var tasks = new Task[] { t1, t2, t3 };
+                        await Task.WhenAll(tasks);
+                        return (t1.Result.ToValid(), t2.Result.ToValid(), t3.Result.ToValid())
+                                    .Apply(apply)
+                                    .Match(Succ: FinSucc, Fail: ErrorAggregate<D>);
+                    });
+
+        static Validation<Error, A> ToValid<A>(this Fin<A> ma) =>
+            ma.Match(Succ: Success<Error, A>, Fail: Fail<Error, A>);
+
+        static Fin<A> ErrorAggregate<A>(Seq<Error> errs) =>
+            FinFail<A>(Error.New(new AggregateException(errs.Map(e => (Exception)e))));
     }
-    public interface HasEnvVars<RT> where RT : struct
+
+    public static class EnvVars
     {
-        Eff<RT, EnvVarsIO> EffEnvVars { get; }
-    }
-    public static class EnvVarsEff<RT>
-        where RT : struct, HasEnvVars<RT>
-    {
-        public static Eff<RT, string> getEnv(string env) =>
-            default(RT).EffEnvVars.Map(p => p.GetEnv(env));
+        public static Eff<RT, System.Collections.IDictionary> getEnvironmentVariables<RT>()
+            where RT : struct, HasEnvironment<RT> =>
+                from envvars in default(RT).EnvironmentEff.Map(e => e.GetEnvironmentVariables())
+                select envvars;
+        public static Eff<RT, Unit> setEnvironmentVariable<RT>(string key, string value)
+            where RT : struct, HasEnvironment<RT> =>
+                from _ in default(RT).EnvironmentEff.Map(e => e.SetEnvironmentVariable(key, value))
+                select unit;
+
+        public static Eff<RT, Lst<Option<(K, V)>>> Lookup<RT, K, V>(System.Collections.IDictionary dict, Lst<K> ms) =>
+            Eff<RT, Lst<Option<(K, V)>>>(env =>
+                ms.Map(m =>
+                    dict.Contains(m)
+                        // This cast could fail
+                        ? Some<(K, V)>(((K)m, (V)dict[m]))
+                        : Option<(K, V)>.None)
+            );
+        public static Eff<RT, V> Lookup<RT, K, V>(System.Collections.IDictionary dict, K m) =>
+            // Eff<RT, V>(env =>
+            dict.Contains(m)
+                // This cast could fail
+                // ? Some<(K, V)>(((K)m, (V)dict[m]))
+                ? SuccessEff((V)dict[m])
+                // : Option<(K, V)>.None
+                : FailEff<V>(Error.New($"Not found: {m}"))
+            // );
+            ;
+
+
+
+
+
     }
 
     // Objective:
     // Provide the same(similar) functionality as this:
     // https://github.com/gregberns/LanguageExtCommon/blob/main/LanguageExtCommon/Environment.cs#L11
-    public struct LiveEnvVarsIO : EnvVarsIO
+    public struct LiveEnvVarsIO
     {
         /// <summary>
         /// Get Environment Variable

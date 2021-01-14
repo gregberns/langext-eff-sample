@@ -20,7 +20,7 @@ namespace LanguageExt.Interfaces
         Unit SetExitCode(int exitCode);
         string ExpandEnvironmentVariables(string name);
         Unit FailFast(string? message);
-        Unit FailFast(string? message, Exception? exception);
+        Unit FailFast(Option<string> message, Option<Exception> exception);
         Arr<string> GetCommandLineArgs();
         Option<string> GetEnvironmentVariable(string variable);
         Option<string> GetEnvironmentVariable(string variable, EnvironmentVariableTarget target);
@@ -133,9 +133,9 @@ namespace LanguageExt.LiveIO
         // Immediately terminates a process after writing a message to the Windows Application event log, and then includes the message and exception information in error reporting to Microsoft.
         // message: A message that explains why the process was terminated, or null if no explanation is provided.
         // exception: An exception that represents the error that caused the termination. This is typically the exception in a catch block.
-        public Unit FailFast(string? message, Exception? exception)
+        public Unit FailFast(Option<string> message, Option<Exception> exception)
         {
-            Environment.FailFast(message, exception);
+            Environment.FailFast(message.IfNone(() => null), exception.IfNone(() => null));
             return unit;
         }
 
